@@ -327,31 +327,10 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             currentId = String.valueOf(entry.id());
             entryMap.put(String.valueOf(entry.id()), entry);
             SurfaceTexture surfaceTexture = entry.surfaceTexture();
-            SurfaceTexture.OnFrameAvailableListener listener = null;
-            try {
-                Class<?> surfaceTextureClass = entry.getClass();
-                Field handlerField = surfaceTextureClass.getDeclaredField("onFrameListener");
-                handlerField.setAccessible(true);
-                listener = (SurfaceTexture.OnFrameAvailableListener) handlerField.get(entry);
-            } catch (NoSuchFieldException | IllegalAccessException e) {
-                e.printStackTrace();
-            }
-            SurfaceTexture.OnFrameAvailableListener finalH = listener;
-            surfaceTexture.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
-                private boolean isFirstCall = true;
-                @Override
-                public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-                    if (finalH != null) {
-                        finalH.onFrameAvailable(surfaceTexture);
-                    }
 
-                    //该listener会不断回调，给flutter的通信只需要一次，避免冗余调用
-                    if (!isFirstCall) return;
-                    isFirstCall = false;
-                    handler.post(() -> {
-                        notifyFrameReady(entry.id(), viewId);
-                    });
-                }
+            // Send frameReady after first render
+            pagPlayer.setFrameUpdateCallback(() -> {
+                handler.post(() -> notifyFrameReady(entry.id(), viewId));
             });
 
             final Surface surface = new Surface(surfaceTexture);
